@@ -1,0 +1,916 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+    <meta name="color-scheme" content="light dark" />
+    <link rel="icon" href="data:," />
+    <title>Rajče Album Explorer — Public</title>
+    <style>
+      :root {
+        color-scheme: light dark;
+        --bg: #f4efe6;
+        --surface: #fffdf7;
+        --surface-alt: #ece4d4;
+        --text: #221a11;
+        --dim: #7d6f5c;
+        --border: #ddd2bd;
+        --accent: #d95d00;
+        --accent-ink: #ffffff;
+        --danger: #b3261e;
+        --danger-bg: #fdf0ee;
+        --danger-border: #e5b6b1;
+        --radius: 10px;
+      }
+      @media (prefers-color-scheme: dark) {
+        :root {
+          --bg: #131110;
+          --surface: #1e1a16;
+          --surface-alt: #292019;
+          --text: #f3ede4;
+          --dim: #a89c8c;
+          --border: #33291f;
+          --accent: #ff7a1a;
+          --accent-ink: #1c1106;
+          --danger: #f2a49e;
+          --danger-bg: #2a1714;
+          --danger-border: #5c2d28;
+        }
+      }
+      * { box-sizing: border-box; }
+      body {
+        margin: 0;
+        background: var(--bg);
+        color: var(--text);
+        font-family: "Avenir Next", "Segoe UI", system-ui, -apple-system, sans-serif;
+        -webkit-text-size-adjust: 100%;
+      }
+      button, [role="button"], select, summary, input:not([type="checkbox"], [type="radio"]) { min-height: 2rem; }
+      .mono {
+        font-family: ui-monospace, "SF Mono", SFMono-Regular, Menlo, Consolas, monospace;
+        font-variant-numeric: tabular-nums;
+      }
+      main { max-width: 48rem; margin: 0 auto; padding: 0 1rem 11rem; }
+      h1 { font-size: 1.5rem; line-height: 1.25; letter-spacing: -0.01em; margin: 0; }
+      .lede { margin: 0.4rem 0 0; font-size: 0.875rem; line-height: 1.55; color: var(--dim); }
+      .field-label {
+        display: block; font-size: 0.75rem; font-weight: 600;
+        text-transform: uppercase; letter-spacing: 0.06em; color: var(--dim);
+      }
+      .row { display: flex; gap: 0.5rem; margin-top: 0.375rem; }
+      input[type="text"] {
+        flex: 1; min-width: 0; border: 1px solid var(--border); border-radius: var(--radius);
+        background: var(--surface); color: var(--text); padding: 0.625rem 0.75rem;
+        font-size: 1rem; outline: none;
+      }
+      input[type="text"]:focus { border-color: var(--accent); }
+      .btn {
+        border: 1px solid var(--border); border-radius: var(--radius); background: var(--surface);
+        color: var(--text); padding: 0.625rem 0.875rem; font-size: 0.875rem; font-weight: 600;
+        cursor: pointer; flex-shrink: 0;
+      }
+      .btn:disabled { opacity: 0.5; cursor: default; }
+      .btn-primary {
+        background: var(--accent); border-color: var(--accent); color: var(--accent-ink);
+        font-size: 1rem; padding: 0.625rem 1rem;
+      }
+      .pill {
+        border: 1px solid var(--border); border-radius: 999px; background: var(--surface);
+        color: var(--text); padding: 0.375rem 0.875rem; font-size: 0.875rem; cursor: pointer;
+        min-height: 2.25rem;
+      }
+      .pill[aria-pressed="true"] {
+        background: var(--accent); border-color: var(--accent); color: var(--accent-ink); font-weight: 600;
+      }
+      .error-text { margin: 0.5rem 0 0; font-size: 0.875rem; color: var(--danger); }
+      .hint { margin: 0.375rem 0 0; font-size: 0.75rem; line-height: 1.5; color: var(--dim); }
+      .block { margin-top: 1.25rem; }
+      .pill-row { display: flex; flex-wrap: wrap; gap: 0.375rem; margin-top: 0.375rem; }
+      .prefix-row { display: flex; align-items: center; gap: 0.5rem; margin-top: 0.375rem; flex-wrap: wrap; }
+      .prefix-row .affix { font-size: 1rem; color: var(--dim); }
+      #prefix-input { flex: 0 0 5rem; width: 5rem; }
+      .strip {
+        margin-top: 1.5rem; border: 1px solid var(--border); border-radius: var(--radius);
+        background: var(--surface); padding: 0.75rem 1rem;
+      }
+      .strip .nums {
+        display: flex; flex-wrap: wrap; align-items: baseline; gap: 0.25rem 0.75rem;
+        font-size: 1.125rem; font-weight: 600;
+      }
+      .strip .k { color: var(--dim); }
+      .strip .v { color: var(--accent); }
+      .strip .counts { margin: 0.25rem 0 0; font-size: 0.875rem; color: var(--dim); }
+      .strip .live-line { margin: 0.25rem 0 0; font-size: 0.875rem; }
+      @keyframes scanpulse { 0%, 100% { opacity: 1; } 50% { opacity: 0.25; } }
+      .scan-dot { display: inline-block; animation: scanpulse 1.1s ease-in-out infinite; }
+      @media (prefers-reduced-motion: reduce) { .scan-dot { animation: none; } }
+      .alert {
+        margin-top: 1rem; border: 1px solid var(--danger-border); border-radius: var(--radius);
+        background: var(--danger-bg); padding: 0.75rem 1rem;
+      }
+      .alert p { margin: 0; font-size: 0.875rem; color: var(--danger); }
+      .alert .btn { margin-top: 0.5rem; background: var(--accent); border-color: var(--accent); color: var(--accent-ink); }
+      .batch { margin-bottom: 1.75rem; }
+      .batch-head {
+        display: flex; align-items: center; gap: 0.75rem;
+        font-size: 0.75rem; color: var(--dim);
+      }
+      .batch-head .rule { flex: 1; height: 1px; background: var(--border); }
+      .batch-head span { flex-shrink: 0; }
+      .cards {
+        list-style: none; margin: 0.75rem 0 0; padding: 0;
+        display: grid; grid-template-columns: 1fr; gap: 0.75rem;
+      }
+      @media (min-width: 640px) { .cards { grid-template-columns: 1fr 1fr; } }
+      .card {
+        display: flex; gap: 0.75rem; height: 100%; padding: 0.625rem;
+        border: 1px solid var(--border); border-radius: var(--radius);
+        background: var(--surface); color: var(--text); text-decoration: none;
+      }
+      .card img, .card .ph {
+        width: 6rem; height: 6rem; flex-shrink: 0; border-radius: 6px; object-fit: cover;
+        background: var(--surface-alt);
+      }
+      .card .ph {
+        display: flex; align-items: center; justify-content: center; padding: 0 0.25rem;
+        text-align: center; font-size: 0.75rem; color: var(--dim);
+      }
+      .card .body { min-width: 0; flex: 1; padding: 0.125rem 0; }
+      .card .title {
+        display: block; font-size: 1rem; font-weight: 600; line-height: 1.35;
+        white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+      }
+      .card .by { display: block; margin-top: 0.125rem; font-size: 0.875rem; color: var(--dim); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+      .card .chip {
+        display: inline-block; margin-top: 0.375rem; padding: 0.125rem 0.5rem; border-radius: 999px;
+        background: var(--surface-alt); color: var(--accent); font-size: 0.75rem; font-weight: 600;
+      }
+      .card .open { display: block; margin-top: 0.25rem; font-size: 0.75rem; color: var(--dim); }
+      .note {
+        border: 1px solid var(--border); border-radius: var(--radius); background: var(--surface);
+        padding: 0.75rem 1rem; font-size: 0.875rem; line-height: 1.55;
+      }
+      .bottombar {
+        position: fixed; left: 0; right: 0; bottom: 0; z-index: 10;
+        border-top: 1px solid var(--border); background: var(--bg);
+        padding-bottom: env(safe-area-inset-bottom);
+      }
+      .bottombar .inner {
+        max-width: 48rem; margin: 0 auto; padding: 0.75rem 1rem;
+        display: flex; align-items: center; gap: 0.75rem;
+      }
+      .bottombar .tally {
+        flex: 1; min-width: 0; font-size: 0.875rem; color: var(--dim);
+        white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+      }
+      .bottombar .btn-primary { font-weight: 700; padding: 0.75rem 1.25rem; }
+      footer { margin-top: 2.5rem; border-top: 1px solid var(--border); padding-top: 1rem; }
+      footer p { font-size: 0.8125rem; line-height: 1.55; color: var(--dim); margin: 0 0 0.5rem; }
+      .hidden { display: none !important; }
+    </style>
+  </head>
+  <body>
+    <main>
+      <section style="padding-top:1.25rem">
+        <h1>Walk the album numbers</h1>
+        <p class="lede">
+          Every Rajče album has a code — <span class="mono">a6618931</span>, say.
+          Paste one (or an album link, or a username) and this walks forward
+          through the numbers that follow it, collecting whichever albums are
+          still alive.
+        </p>
+
+        <form id="start-form" style="margin-top:1rem">
+          <label class="field-label" for="start-input">Starting code, link, or username</label>
+          <div class="row">
+            <input id="start-input" class="mono" type="text" name="input" value="https://www.rajce.idnes.cz/a6618931"
+              placeholder="a6618931" autocapitalize="none" autocomplete="off" autocorrect="off" spellcheck="false" />
+            <button type="submit" class="btn btn-primary" id="scan-btn">Scan</button>
+          </div>
+          <p id="input-error" class="error-text" role="alert" hidden></p>
+          <div style="margin-top:0.75rem">
+            <button type="button" class="pill mono" id="random-btn">↻ Random starting code</button>
+          </div>
+
+          <div class="block">
+            <span class="field-label" id="batch-count-label">Batches per go</span>
+            <div class="pill-row mono" role="group" aria-labelledby="batch-count-label" id="batch-count-row">
+              <button type="button" class="pill" data-n="1" aria-pressed="true">1</button>
+              <button type="button" class="pill" data-n="2" aria-pressed="false">2</button>
+              <button type="button" class="pill" data-n="3" aria-pressed="false">3</button>
+              <button type="button" class="pill" data-n="5" aria-pressed="false">5</button>
+              <button type="button" class="pill" data-n="10" aria-pressed="false">10</button>
+            </div>
+            <p class="hint">Each batch checks 100 codes, so one go walks up to <span id="batch-hint-n">100</span> codes before you need to tap again.</p>
+          </div>
+
+          <div class="block">
+            <label class="field-label" for="prefix-input">Random code starting with</label>
+            <div class="prefix-row">
+              <span class="affix mono">a</span>
+              <input id="prefix-input" class="mono" type="text" placeholder="661" inputmode="numeric"
+                autocapitalize="none" autocomplete="off" autocorrect="off" spellcheck="false" />
+              <span class="affix mono">••••••</span>
+              <button type="button" class="btn" id="prefix-btn">Randomise the rest</button>
+            </div>
+            <p id="prefix-error" class="error-text" role="alert" hidden></p>
+            <p class="hint" id="prefix-hint">Pick the first 1, 2 or 3 digits; exactly six random digits are added after them, so fewer digits reaches lower numbers.</p>
+          </div>
+        </form>
+      </section>
+
+      <section id="strip" class="strip mono hidden" aria-label="Where you are in the number range">
+        <div class="nums">
+          <span><span class="k">START </span><span class="v" id="strip-start">—</span></span>
+          <span aria-hidden="true" style="color:var(--dim)">→</span>
+          <span><span class="k">CHECKED UP TO </span><span class="v" id="strip-upto">—</span></span>
+        </div>
+        <p class="counts" id="strip-counts"></p>
+        <p class="live-line" id="strip-live" hidden></p>
+      </section>
+
+      <div id="scan-alert" class="alert" hidden>
+        <p role="alert" id="scan-alert-text"></p>
+        <button type="button" class="btn" id="retry-btn">Retry</button>
+      </div>
+
+      <section aria-label="Albums found" style="margin-top:1.5rem">
+        <div id="batches"></div>
+        <p id="empty-note" class="hint" style="font-size:0.875rem">Nothing scanned yet — press Scan to start walking.</p>
+        <p id="dead-note" class="note" hidden>
+          This whole stretch is dead — deleted or hidden albums, which is normal
+          for older numbers. Keep walking: the next batch may be livelier, or
+          jump somewhere newer with a random code.
+        </p>
+      </section>
+
+      <footer>
+        <p>
+          This public edition runs entirely in your browser: it asks Rajče
+          through free public relays (the Jina reader first, then AllOrigins
+          and CodeTabs), because Rajče doesn't answer other websites directly.
+          Relays are shared and rate-limited, so scans run slower than a
+          private server version and the odd album may be missed — a code
+          counted as unchecked can be retried with Next or a fresh scan.
+        </p>
+        <p>
+          <button type="button" class="btn" id="save-copy-btn">Save a copy of this page (.html)</button>
+          — one self-contained file; drop it on any free static host
+          (Netlify Drop, GitHub Pages, Cloudflare Pages…) to publish it.
+        </p>
+      </footer>
+    </main>
+
+    <div id="bottombar" class="bottombar hidden">
+      <div class="inner">
+        <p class="tally mono" id="tally"></p>
+        <button type="button" class="btn hidden" id="stop-btn" aria-label="Stop after the current checks finish">Stop</button>
+        <button type="button" class="btn btn-primary" id="next-btn">Next 100 →</button>
+      </div>
+    </div>
+
+    <script>
+      "use strict";
+      var RAJCE = "https://www.rajce.idnes.cz";
+      var BATCH_SIZE = 100;
+      var EXAMPLE_URL = "https://www.rajce.idnes.cz/a6618931";
+      var EXAMPLE_ID = 6618931;
+      var LANES = 4;
+
+      function $(id) { return document.getElementById(id); }
+      function codeLabel(id) { return "a" + id; }
+      function sleep(ms) { return new Promise(function (r) { setTimeout(r, ms); }); }
+
+      function fetchWithTimeout(url, ms) {
+        var ctrl = new AbortController();
+        var timer = setTimeout(function () { ctrl.abort(); }, ms);
+        return fetch(url, { signal: ctrl.signal }).finally(function () { clearTimeout(timer); });
+      }
+
+      function decodeEntities(s) {
+        return s
+          .replace(/&amp;/g, "&")
+          .replace(/&quot;/g, '"')
+          .replace(/&#0?39;/g, "'")
+          .replace(/&apos;/g, "'")
+          .replace(/&lt;/g, "<")
+          .replace(/&gt;/g, ">")
+          .replace(/&#(\d+);/g, function (_, n) { return String.fromCodePoint(parseInt(n, 10) || 0); });
+      }
+
+      function metaContent(html, prop) {
+        var m = html.match(new RegExp('property="og:' + prop + '"\\s+content="([^"]*)"'));
+        return m && m[1] ? decodeEntities(m[1]) : null;
+      }
+
+      // og:title / Jina "Title:" looks like "Tango sklo – Rolf – album na
+      // Rajčeti" (Jina renders the tail in English: "album on Rajče"). The
+      // album title is everything before the " – <author> – album …" tail.
+      function titleFromFull(raw, slugTitle) {
+        if (raw) {
+          var parts = raw.split(" – ");
+          var last = parts[parts.length - 1];
+          if (parts.length >= 3 && (last === "album na Rajčeti" || last === "album on Rajče")) {
+            return parts.slice(0, -2).join(" – ");
+          }
+          if (parts[0]) return parts[0];
+        }
+        return slugTitle || "";
+      }
+
+      function slugTitleOf(albumUrl) {
+        var slug = albumUrl.split("/album/")[1] || "";
+        var t = "";
+        try { t = decodeURIComponent(slug).replace(/-/g, " ").trim(); }
+        catch (e) { t = slug.replace(/-/g, " ").trim(); }
+        if (t) t = t.charAt(0).toUpperCase() + t.slice(1);
+        return t;
+      }
+
+      function usernameOf(albumUrl) {
+        try { return new URL(albumUrl).pathname.split("/").filter(Boolean)[0] || ""; }
+        catch (e) { return ""; }
+      }
+
+      function idFromImageUrl(url) {
+        var m = url.match(/\/(\d+)_[0-9a-f]{16,}\//);
+        if (!m) return null;
+        var n = parseInt(m[1], 10);
+        return isFinite(n) && n > 0 ? n : null;
+      }
+
+      function thumbOf(imgUrl) {
+        return imgUrl.indexOf("/images/") >= 0 ? imgUrl.replace("/images/", "/thumb/") : imgUrl;
+      }
+
+      function makeAlbum(id, albumUrl, title, coverUrl) {
+        return {
+          id: id,
+          code: codeLabel(id),
+          title: title || ("Album " + codeLabel(id)),
+          username: usernameOf(albumUrl),
+          albumUrl: albumUrl,
+          coverUrl: coverUrl || null
+        };
+      }
+
+      /* ---------- relay 1: Jina reader ----------
+         One request answers both phases: the "Final URL" line is where the
+         a<code> short link redirected (present only for live albums), the
+         "Title:" line carries the album title, and the markdown embeds the
+         album's own photos on img*.rajce.idnes.cz — the first is the cover. */
+      function checkViaJina(id) {
+        var target = RAJCE + "/a" + id;
+        function attempt(retriesLeft) {
+          return fetchWithTimeout("https://r.jina.ai/" + target, 30000).then(function (res) {
+            if (res.status === 429 && retriesLeft > 0) {
+              return sleep(4000).then(function () { return attempt(retriesLeft - 1); });
+            }
+            if (!res.ok) throw new Error("jina " + res.status);
+            return res.text();
+          }).then(function (text) {
+            if (typeof text !== "string") return text; // retry promise chain
+            var fm = text.match(/^Final URL: (\S+)/m);
+            if (!fm || fm[1].indexOf("/album/") < 0) return { status: "dead" };
+            var albumUrl = fm[1].split("?")[0];
+            var tm = text.match(/^Title: (.*)$/m);
+            var title = titleFromFull(tm ? tm[1].trim() : null, slugTitleOf(albumUrl));
+            var im = text.match(/https:\/\/img\d+\.rajce\.idnes\.cz\/[^\s)"']+/);
+            var cover = null;
+            if (im && idFromImageUrl(im[0]) === id) cover = thumbOf(im[0]);
+            else if (im) cover = thumbOf(im[0]);
+            return { status: "live", album: makeAlbum(id, albumUrl, title, cover) };
+          });
+        }
+        return attempt(1);
+      }
+
+      /* ---------- relay 2: AllOrigins ----------
+         JSON envelope: status.url is the final URL after redirects and
+         contents is the album page HTML with og: tags. */
+      function checkViaAllOrigins(id) {
+        var target = RAJCE + "/a" + id;
+        var url = "https://api.allorigins.win/get?url=" + encodeURIComponent(target);
+        return fetchWithTimeout(url, 25000).then(function (res) {
+          if (!res.ok) throw new Error("allorigins " + res.status);
+          return res.json();
+        }).then(function (data) {
+          var finalUrl = data && data.status && data.status.url ? data.status.url : "";
+          var httpCode = data && data.status ? data.status.http_code : 0;
+          if (finalUrl.indexOf("/album/") >= 0) {
+            var html = data.contents || "";
+            var title = titleFromFull(metaContent(html, "title"), slugTitleOf(finalUrl));
+            var ogImage = metaContent(html, "image");
+            return { status: "live", album: makeAlbum(id, finalUrl.split("?")[0], title, ogImage ? thumbOf(ogImage) : null) };
+          }
+          if (httpCode === 404 || httpCode === 410) return { status: "dead" };
+          throw new Error("allorigins inconclusive");
+        });
+      }
+
+      /* ---------- relay 3: CodeTabs ----------
+         Returns the album page body after following the redirect; liveness
+         is read from its og: tags (dead codes serve an error page). */
+      function checkViaCodetabs(id) {
+        var target = RAJCE + "/a" + id;
+        var url = "https://api.codetabs.com/v1/proxy?quest=" + encodeURIComponent(target);
+        return fetchWithTimeout(url, 25000).then(function (res) {
+          if (res.status === 404 || res.status === 410) return { status: "dead" };
+          if (!res.ok) throw new Error("codetabs " + res.status);
+          return res.text().then(function (html) {
+            var ogUrl = metaContent(html, "url");
+            var ogTitle = metaContent(html, "title");
+            if (ogUrl && ogUrl.indexOf("/album/") >= 0 && ogTitle) {
+              var ogImage = metaContent(html, "image");
+              return { status: "live", album: makeAlbum(id, ogUrl.split("?")[0], titleFromFull(ogTitle, slugTitleOf(ogUrl)), ogImage ? thumbOf(ogImage) : null) };
+            }
+            if (html.indexOf("Album neexistuje") >= 0 || html.indexOf("neexistuje nebo je skryté") >= 0) {
+              return { status: "dead" };
+            }
+            throw new Error("codetabs inconclusive");
+          });
+        });
+      }
+
+      function checkCode(id) {
+        return checkViaJina(id).catch(function () {
+          return checkViaAllOrigins(id).catch(function () {
+            return checkViaCodetabs(id).catch(function () {
+              return { status: "unknown" };
+            });
+          });
+        });
+      }
+
+      /* ---------- resolving a start point ---------- */
+      function jinaText(url) {
+        return fetchWithTimeout("https://r.jina.ai/" + url, 30000).then(function (res) {
+          if (!res.ok) throw new Error("relay " + res.status);
+          return res.text();
+        });
+      }
+
+      function idFromPageText(text) {
+        var m = text.match(/"album":\{"id":(\d+)/);
+        if (m) return parseInt(m[1], 10);
+        var im = text.match(/https:\/\/img\d+\.rajce\.idnes\.cz\/[^\s)"']+/g) || [];
+        for (var i = 0; i < im.length; i++) {
+          var n = idFromImageUrl(im[i]);
+          if (n) return n;
+        }
+        return null;
+      }
+
+      function resolveAlbumUrl(url) {
+        return jinaText(url).then(function (text) {
+          var n = idFromPageText(text);
+          if (n) return n;
+          throw new Error("no id via jina");
+        }).catch(function () {
+          var ao = "https://api.allorigins.win/get?url=" + encodeURIComponent(url);
+          return fetchWithTimeout(ao, 25000).then(function (res) { return res.json(); }).then(function (data) {
+            var n = idFromPageText((data && data.contents) || "");
+            if (n) return n;
+            throw new Error("That album link didn't resolve — the album may be deleted or private.");
+          });
+        });
+      }
+
+      function resolveUsername(username) {
+        var clean = username.replace(/^@/, "").trim();
+        if (!/^[\p{L}\p{N}_.-]+$/u.test(clean)) {
+          return Promise.reject(new Error("That doesn't look like a Rajče username."));
+        }
+        var rssUrl = RAJCE + "/export/user/" + encodeURIComponent(clean) + "/albums.rss";
+        return jinaText(rssUrl).then(function (text) {
+          var n = idFromPageText(text);
+          if (n) return n;
+          throw new Error("no albums via jina");
+        }).catch(function () {
+          var ao = "https://api.allorigins.win/get?url=" + encodeURIComponent(rssUrl);
+          return fetchWithTimeout(ao, 25000).then(function (res) {
+            if (!res.ok) throw new Error("relay " + res.status);
+            return res.json();
+          }).then(function (data) {
+            var n = idFromPageText((data && data.contents) || "");
+            if (n) return n;
+            throw new Error("Couldn't find public albums for “" + clean + "”.");
+          }).catch(function (e) {
+            if (e && e.message && e.message.indexOf("Couldn't find") === 0) throw e;
+            throw new Error("Rajče didn't answer — try again in a moment.");
+          });
+        });
+      }
+
+      function resolveStart(input) {
+        var value = input.trim();
+        var bare = value.match(/^a?(\d{1,10})$/i);
+        if (bare) {
+          var id = parseInt(bare[1], 10);
+          return Promise.resolve({ startId: id, label: codeLabel(id) });
+        }
+        var urlText = /^[a-z][a-z0-9+.-]*:\/\//i.test(value)
+          ? value
+          : (value.indexOf("rajce") >= 0 ? "https://" + value : null);
+        if (urlText) {
+          var url;
+          try { url = new URL(urlText); }
+          catch (e) { return Promise.reject(new Error("That link doesn't parse — paste the full Rajče link.")); }
+          var host = url.hostname.toLowerCase();
+          if (!/rajce\.idnes\.cz$/.test(host) && !/rajce\.net$/.test(host)) {
+            return Promise.reject(new Error("That link isn't from Rajče (rajce.idnes.cz)."));
+          }
+          var short = url.pathname.match(/^\/a(\d+)\/?$/i);
+          if (short) {
+            var sid = parseInt(short[1], 10);
+            return Promise.resolve({ startId: sid, label: codeLabel(sid) });
+          }
+          if (/^\/[^/]+\/album\/[^/]+/.test(url.pathname)) {
+            return resolveAlbumUrl(url.toString()).then(function (aid) {
+              return { startId: aid, label: codeLabel(aid) };
+            });
+          }
+          var sub = host.split(".")[0] || "";
+          if (sub && sub !== "www" && sub.indexOf("img") !== 0) {
+            return resolveUsername(sub).then(function (uid) {
+              return { startId: uid, label: sub + "'s newest album, " + codeLabel(uid) };
+            });
+          }
+          var seg = url.pathname.split("/").filter(Boolean)[0];
+          if (seg) {
+            return resolveUsername(seg).then(function (uid) {
+              return { startId: uid, label: seg + "'s newest album, " + codeLabel(uid) };
+            });
+          }
+          return Promise.reject(new Error("Paste an album link, an a-code link, or a username."));
+        }
+        return resolveUsername(value).then(function (uid) {
+          return { startId: uid, label: value.replace(/^@/, "") + "'s newest album, " + codeLabel(uid) };
+        });
+      }
+
+      /* ---------- state ---------- */
+      var startId = null;
+      var startLabel = null;
+      var batches = []; // {from,to,checked,found,unknown,albums,done,els:{head,list}}
+      var batchCount = 1;
+      var scanning = false;
+      var resolving = false;
+      var cancelRun = false;
+      var chainTotal = 0;
+      var chainDone = 0;
+      var currentFrom = null; // range being scanned right now
+      var failedFrom = null;
+      var attempted = false; // a walk has been started at least once
+
+      var els = {
+        form: $("start-form"), input: $("start-input"), scanBtn: $("scan-btn"),
+        inputError: $("input-error"), randomBtn: $("random-btn"),
+        prefix: $("prefix-input"), prefixBtn: $("prefix-btn"), prefixError: $("prefix-error"),
+        strip: $("strip"), stripStart: $("strip-start"), stripUpto: $("strip-upto"),
+        stripCounts: $("strip-counts"), stripLive: $("strip-live"),
+        alert: $("scan-alert"), alertText: $("scan-alert-text"), retryBtn: $("retry-btn"),
+        batches: $("batches"), emptyNote: $("empty-note"), deadNote: $("dead-note"),
+        bottombar: $("bottombar"), tally: $("tally"), nextBtn: $("next-btn"), stopBtn: $("stop-btn"),
+        saveBtn: $("save-copy-btn"), batchHintN: $("batch-hint-n")
+      };
+
+      function totals() {
+        var checked = 0, found = 0, unknown = 0;
+        batches.forEach(function (b) { checked += b.checked; found += b.found; unknown += b.unknown; });
+        return { checked: checked, found: found, unknown: unknown };
+      }
+      function lastChecked() {
+        if (!batches.length) return null;
+        var b = batches[batches.length - 1];
+        return b.checked > 0 ? b.from + b.checked - 1 : b.from - 1;
+      }
+      function busy() { return scanning || resolving; }
+
+      /* ---------- rendering ---------- */
+      function albumCard(album) {
+        var li = document.createElement("li");
+        var a = document.createElement("a");
+        a.className = "card";
+        a.href = album.albumUrl;
+        a.target = "_blank";
+        a.rel = "noreferrer";
+        if (album.coverUrl) {
+          var img = document.createElement("img");
+          img.src = album.coverUrl;
+          img.alt = "Cover photo of the album “" + album.title + "”";
+          img.loading = "lazy";
+          img.decoding = "async";
+          img.addEventListener("error", function () {
+            // Thumb refused? Try the full-size original once, then give up
+            // to the code placeholder.
+            if (img.dataset.triedFull) { swapToPlaceholder(); return; }
+            img.dataset.triedFull = "1";
+            img.src = album.coverUrl.replace("/thumb/", "/images/");
+          });
+          function swapToPlaceholder() {
+            var ph = document.createElement("span");
+            ph.className = "ph mono";
+            ph.setAttribute("aria-hidden", "true");
+            ph.textContent = album.code;
+            a.replaceChild(ph, img);
+          }
+          a.appendChild(img);
+        } else {
+          var ph0 = document.createElement("span");
+          ph0.className = "ph mono";
+          ph0.setAttribute("aria-hidden", "true");
+          ph0.textContent = album.code;
+          a.appendChild(ph0);
+        }
+        var body = document.createElement("span");
+        body.className = "body";
+        var t = document.createElement("span");
+        t.className = "title";
+        t.textContent = album.title;
+        var by = document.createElement("span");
+        by.className = "by";
+        by.textContent = "by " + album.username;
+        var chip = document.createElement("span");
+        chip.className = "chip mono";
+        chip.textContent = album.code;
+        var open = document.createElement("span");
+        open.className = "open";
+        open.textContent = "Open on Rajče ↗";
+        body.appendChild(t); body.appendChild(by); body.appendChild(chip); body.appendChild(open);
+        a.appendChild(body);
+        li.appendChild(a);
+        return li;
+      }
+
+      function batchHeadText(b) {
+        var parts = [];
+        parts.push(b.found > 0 ? b.found + " live" : (b.done ? "nothing live — all deleted or hidden" : "scanning…"));
+        if (b.unknown > 0) parts.push(b.unknown + " unchecked");
+        if (!b.done) parts.push(b.checked + "/" + BATCH_SIZE + " checked");
+        return parts.join(" · ");
+      }
+
+      function renderBatchHead(b) {
+        b.els.headRight.textContent = batchHeadText(b);
+      }
+
+      function addBatchSection(b) {
+        var wrap = document.createElement("div");
+        wrap.className = "batch";
+        var head = document.createElement("div");
+        head.className = "batch-head mono";
+        var left = document.createElement("span");
+        left.textContent = codeLabel(b.from) + "–" + codeLabel(b.to);
+        var rule = document.createElement("span");
+        rule.className = "rule";
+        rule.setAttribute("aria-hidden", "true");
+        var right = document.createElement("span");
+        head.appendChild(left); head.appendChild(rule); head.appendChild(right);
+        var list = document.createElement("ul");
+        list.className = "cards";
+        wrap.appendChild(head); wrap.appendChild(list);
+        els.batches.appendChild(wrap);
+        b.els = { headRight: right, list: list, wrap: wrap };
+        renderBatchHead(b);
+      }
+
+      function updateChrome() {
+        var t = totals();
+        var lc = lastChecked();
+        if (startId != null) {
+          els.strip.classList.remove("hidden");
+          els.bottombar.classList.remove("hidden");
+          els.stripStart.textContent = codeLabel(startId);
+          els.stripUpto.textContent = scanning && currentFrom != null
+            ? codeLabel(currentFrom + BATCH_SIZE - 1)
+            : (lc != null && lc >= startId ? codeLabel(lc) : "—");
+          var counts = "Scanned " + t.checked + " · Found " + t.found + " · " +
+            (t.checked - t.found - t.unknown) + " dead or hidden";
+          if (t.unknown > 0) counts += " · " + t.unknown + " unchecked";
+          if (startLabel && startLabel !== codeLabel(startId)) counts += " · Started from " + startLabel;
+          els.stripCounts.textContent = counts;
+          els.tally.textContent = t.checked + " checked · " + t.found + " found" +
+            (lc != null && lc >= startId ? " · up to " + codeLabel(lc) : "");
+        }
+        if (scanning && currentFrom != null) {
+          var b = batches[batches.length - 1];
+          var line = "● Scanning " + codeLabel(currentFrom) + "–" + codeLabel(currentFrom + BATCH_SIZE - 1) +
+            "… · " + (b ? b.checked : 0) + " of " + BATCH_SIZE + " checked";
+          if (chainTotal > 1) line += " — batch " + Math.min(chainDone + 1, chainTotal) + " of " + chainTotal;
+          els.stripLive.innerHTML = "";
+          var dot = document.createElement("span");
+          dot.className = "scan-dot";
+          dot.textContent = "●";
+          els.stripLive.appendChild(dot);
+          els.stripLive.appendChild(document.createTextNode(line.slice(1)));
+          els.stripLive.hidden = false;
+        } else {
+          els.stripLive.hidden = true;
+        }
+        els.stopBtn.classList.toggle("hidden", !(scanning && chainTotal > 1));
+        els.nextBtn.disabled = busy() || lc == null;
+        els.nextBtn.textContent = scanning ? "Scanning…" :
+          (batchCount > 1 ? "Next 100 ×" + batchCount + " →" : "Next 100 →");
+        els.scanBtn.disabled = busy();
+        els.randomBtn.disabled = busy();
+        els.prefixBtn.disabled = busy();
+        els.emptyNote.style.display = batches.length === 0 && !scanning && !attempted ? "" : "none";
+        els.deadNote.hidden = !(batches.length > 0 && t.found === 0 && !scanning);
+      }
+
+      /* ---------- scan engine ---------- */
+      function runBatch(fromId) {
+        var b = {
+          from: fromId, to: fromId + BATCH_SIZE - 1,
+          checked: 0, found: 0, unknown: 0, albums: [], done: false, els: null
+        };
+        batches.push(b);
+        addBatchSection(b);
+        currentFrom = fromId;
+        updateChrome();
+        var next = 0;
+        function worker() {
+          if (cancelRun || next >= BATCH_SIZE) return Promise.resolve();
+          var id = fromId + next;
+          next += 1;
+          return checkCode(id).then(function (r) {
+            b.checked += 1;
+            if (r.status === "live") {
+              b.found += 1;
+              b.albums.push(r.album);
+              b.els.list.appendChild(albumCard(r.album));
+            } else if (r.status === "unknown") {
+              b.unknown += 1;
+            }
+            renderBatchHead(b);
+            updateChrome();
+          }).then(worker);
+        }
+        var lanes = [];
+        for (var i = 0; i < LANES; i++) lanes.push(worker());
+        return Promise.all(lanes).then(function () {
+          b.done = true;
+          currentFrom = null;
+          renderBatchHead(b);
+          updateChrome();
+          return b;
+        });
+      }
+
+      function startChain(fromId) {
+        attempted = true;
+        cancelRun = false;
+        chainTotal = batchCount;
+        chainDone = 0;
+        scanning = true;
+        els.alert.hidden = true;
+        failedFrom = null;
+        updateChrome();
+        var cur = fromId;
+        function step() {
+          if (cancelRun || chainDone >= chainTotal) {
+            scanning = false; chainTotal = 0; updateChrome();
+            return Promise.resolve();
+          }
+          return runBatch(cur).then(function (b) {
+            chainDone += 1;
+            cur = b.from + BATCH_SIZE;
+            if (b.checked > 0 && b.unknown === b.checked) {
+              // Every relay failed for the whole batch — surface it with a
+              // retry instead of pretending the stretch is dead.
+              batches.pop();
+              if (b.els) b.els.wrap.remove();
+              scanning = false; chainTotal = 0;
+              failedFrom = b.from;
+              els.alertText.textContent = "The relays didn't answer for " + codeLabel(b.from) + "–" +
+                codeLabel(b.to) + " — Rajče may be slow or the relays are rate-limited. Nothing was counted as dead.";
+              els.retryBtn.textContent = "Retry " + codeLabel(b.from) + "–" + codeLabel(b.to);
+              els.alert.hidden = false;
+              updateChrome();
+              return;
+            }
+            return step();
+          });
+        }
+        return step();
+      }
+
+      function beginWalk(id, label, inputText) {
+        els.input.value = inputText;
+        els.inputError.hidden = true;
+        startId = id;
+        startLabel = label;
+        batches = [];
+        els.batches.innerHTML = "";
+        els.alert.hidden = true;
+        failedFrom = null;
+        startChain(id);
+      }
+
+      /* ---------- events ---------- */
+      els.form.addEventListener("submit", function (e) {
+        e.preventDefault();
+        var value = els.input.value.trim();
+        if (!value) {
+          els.inputError.textContent = "Paste an album code, a Rajče link, or a username first.";
+          els.inputError.hidden = false;
+          return;
+        }
+        els.inputError.hidden = true;
+        var bare = value.match(/^a?(\d{1,10})$/i);
+        if (bare) {
+          var id = parseInt(bare[1], 10);
+          beginWalk(id, codeLabel(id), value);
+          return;
+        }
+        resolving = true;
+        updateChrome();
+        resolveStart(value).then(function (r) {
+          resolving = false;
+          beginWalk(r.startId, r.label, value);
+        }).catch(function (err) {
+          resolving = false;
+          els.inputError.textContent = err && err.message ? err.message : "Couldn't resolve that — check it and try again.";
+          els.inputError.hidden = false;
+          updateChrome();
+        });
+      });
+
+      els.randomBtn.addEventListener("click", function () {
+        var id = 500000 + Math.floor(Math.random() * 20300000);
+        beginWalk(id, codeLabel(id), codeLabel(id));
+      });
+
+      $("batch-count-row").addEventListener("click", function (e) {
+        var btn = e.target.closest("button[data-n]");
+        if (!btn) return;
+        batchCount = parseInt(btn.getAttribute("data-n"), 10);
+        var pills = $("batch-count-row").querySelectorAll("button[data-n]");
+        pills.forEach(function (p) { p.setAttribute("aria-pressed", p === btn ? "true" : "false"); });
+        els.batchHintN.textContent = String(batchCount * BATCH_SIZE);
+        updateChrome();
+      });
+
+      els.prefixBtn.addEventListener("click", function () {
+        var p = els.prefix.value.trim();
+        if (!/^[1-9]\d{0,2}$/.test(p)) {
+          els.prefixError.textContent = "Enter 1, 2 or 3 digits, the first not 0 — e.g. 1, 17 or 661.";
+          els.prefixError.hidden = false;
+          return;
+        }
+        els.prefixError.hidden = true;
+        // Always exactly six random digits after the chosen prefix, whatever
+        // its length: 1 digit gives a 7-digit code, 2 an 8-digit code, 3 a
+        // 9-digit code — so a shorter prefix still lands on lower numbers.
+        var rest = "";
+        for (var i = 0; i < 6; i++) rest += Math.floor(Math.random() * 10);
+        var id = parseInt(p + rest, 10);
+        beginWalk(id, codeLabel(id), codeLabel(id));
+      });
+
+      els.prefix.addEventListener("input", function () {
+        els.prefix.value = els.prefix.value.replace(/\D/g, "").slice(0, 3);
+      });
+
+      els.nextBtn.addEventListener("click", function () {
+        var lc = lastChecked();
+        if (lc == null || busy()) return;
+        startChain(lc + 1);
+      });
+
+      els.stopBtn.addEventListener("click", function () { cancelRun = true; });
+
+      els.retryBtn.addEventListener("click", function () {
+        if (failedFrom == null || busy()) return;
+        var from = failedFrom;
+        failedFrom = null;
+        els.alert.hidden = true;
+        chainTotal = 1; chainDone = 0; scanning = true; cancelRun = false;
+        updateChrome();
+        runBatch(from).then(function () {
+          scanning = false; chainTotal = 0; updateChrome();
+        });
+      });
+
+      els.saveBtn.addEventListener("click", function () {
+        var html = "<!doctype html>\n" + document.documentElement.outerHTML;
+        var blob = new Blob([html], { type: "text/html" });
+        var url = URL.createObjectURL(blob);
+        var a = document.createElement("a");
+        a.href = url;
+        a.download = "rajce-album-explorer-public.html";
+        document.body.appendChild(a);
+        a.click();
+        a.remove();
+        setTimeout(function () { URL.revokeObjectURL(url); }, 4000);
+      });
+
+      /* ---------- first open: walk from the example link ---------- */
+      startId = EXAMPLE_ID;
+      startLabel = codeLabel(EXAMPLE_ID);
+      updateChrome();
+      startChain(EXAMPLE_ID);
+    </script>
+  </body>
+</html>
